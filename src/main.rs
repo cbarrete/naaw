@@ -248,18 +248,8 @@ fn send_client_message(message: &str) {
     stream.write_all(message.as_bytes()).unwrap();
 }
 
-fn tag() {
-    let output = Command::new("bspc")
-        .arg("query")
-        .arg("-N")
-        .arg("focused")
-        .arg("-n")
-        .output()
-        .unwrap();
-    let node = std::str::from_utf8(output.stdout.as_slice())
-        .unwrap()
-        .trim();
-    send_client_message(&format!("tag {}", node));
+fn tag(node: Node) {
+    send_client_message(&format!("tag {}", node.0));
 }
 
 fn show() {
@@ -269,7 +259,7 @@ fn show() {
 static USAGE: &str = "usage: naaw [option]
 available options:
   server <tagged-border-width>
-  tag
+  tag <node-id>
   show";
 
 fn main() {
@@ -286,7 +276,13 @@ fn main() {
                 .unwrap();
             server(tagged_border_width)
         }
-        "tag" => tag(),
+        "tag" => {
+            let node = args.next().unwrap_or_else(|| {
+                eprintln!("{}", USAGE);
+                std::process::exit(1);
+            });
+            tag(Node { 0: node })
+        }
         "show" => show(),
         _ => println!("{}", USAGE),
     }
