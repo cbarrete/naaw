@@ -204,7 +204,7 @@ fn bspc_reset_border_width(node: &Node) {
     bspc_set_border_width(node, default_border_width);
 }
 
-fn server() {
+fn server(tagged_border_width: usize) {
     let (tx, rx) = channel::<Event>();
 
     let mut state = state::State::new();
@@ -224,7 +224,7 @@ fn server() {
             }
             Event::TagNode(node) => match state.toggle_tag(node.clone()) {
                 state::TagStatus::Tagged => {
-                    bspc_set_border_width(&node, 3);
+                    bspc_set_border_width(&node, tagged_border_width);
                     if !state.is_tag_shown() {
                         bspc_toggle_visibility(&node);
                     }
@@ -268,14 +268,24 @@ fn show() {
 
 static USAGE: &str = "usage: naaw [option]
 available options:
-  server
+  server <tagged-border-width>
   tag
   show";
 
 fn main() {
     let mut args = env::args().skip(1);
-    match args.nth(0).unwrap().as_str() {
-        "server" => server(),
+    match args.next().unwrap().as_str() {
+        "server" => {
+            let tagged_border_width = args
+                .next()
+                .unwrap_or_else(|| {
+                    eprintln!("{}", USAGE);
+                    std::process::exit(1);
+                })
+                .parse()
+                .unwrap();
+            server(tagged_border_width)
+        }
         "tag" => tag(),
         "show" => show(),
         _ => println!("{}", USAGE),
