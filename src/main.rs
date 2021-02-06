@@ -266,12 +266,18 @@ fn show() {
     send_client_message("show")
 }
 
+static USAGE: &str = "usage: naaw [option]
+available options:
+  server
+  tag
+  show";
+
 fn main() {
     let mut args = env::args().skip(1);
     match args.nth(0).unwrap().as_str() {
         "server" => server(),
         "tag" => tag(),
         "show" => show(),
-        _ => panic!("wrong argument"),
+        _ => println!("{}", USAGE),
     }
 }
