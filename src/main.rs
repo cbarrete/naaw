@@ -6,7 +6,7 @@ use std::process::{Command, Stdio};
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
 
-const SOCKET_PATH: &str = "/tmp/naaw-socket";
+static SOCKET_PATH: &str = "/tmp/naaw-socket";
 
 #[derive(Debug)]
 enum BspcSubCommand {
