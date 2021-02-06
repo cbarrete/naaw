@@ -151,6 +151,20 @@ fn bspc_set_border_width(node: &Node, width: usize) {
         .unwrap();
 }
 
+fn bspc_reset_border_width(node: &Node) {
+    let output = Command::new("bspc")
+        .arg("config")
+        .arg("border_width")
+        .output()
+        .unwrap();
+    let default_border_width = std::str::from_utf8(output.stdout.as_slice())
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    bspc_set_border_width(node, default_border_width);
+}
+
 fn server() {
     let (tx, rx) = channel::<Event>();
 
@@ -172,7 +186,7 @@ fn server() {
             }
             Event::TagNode(node) => {
                 if state.tagged_nodes.contains(&node) {
-                    bspc_set_border_width(&node, 1);
+                    bspc_reset_border_width(&node);
                     state.tagged_nodes.remove(&node);
                     state.untagged_nodes.insert(node);
                 } else {
