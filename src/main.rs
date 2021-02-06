@@ -1,10 +1,10 @@
-use std::sync::mpsc::{Sender, channel};
-use std::process::{Stdio, Command};
-use std::io::{BufRead, BufReader, Read, Write};
 use std::collections::HashSet;
 use std::env;
-use std::thread;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
+use std::process::{Command, Stdio};
+use std::sync::mpsc::{channel, Sender};
+use std::thread;
 
 const SOCKET_PATH: &str = "/tmp/naaw-socket";
 
@@ -62,7 +62,7 @@ impl Event {
     fn from_bspc(sub_command: &BspcSubCommand, node_id: &str) -> Self {
         match sub_command {
             BspcSubCommand::NodeAdd => Self::AddNode(Node(String::from(node_id))),
-            BspcSubCommand::NodeRemove => Self::RemoveNode(Node(String::from(node_id)))
+            BspcSubCommand::NodeRemove => Self::RemoveNode(Node(String::from(node_id))),
         }
     }
 }
@@ -81,20 +81,20 @@ fn subscribe_bspc(sub_command: BspcSubCommand, tx: Sender<Event>) {
             let line = match line {
                 Err(err) => {
                     eprintln!("{}", err.to_string());
-                    continue
-                },
+                    continue;
+                }
                 Ok(l) => l,
             };
             let node_id = match line.split(' ').nth(sub_command.node_position()) {
                 None => {
                     eprintln!("Couldn't parse bspc output");
-                    continue
-                },
+                    continue;
+                }
                 Some(node) => node,
             };
             if let Err(err) = tx.send(Event::from_bspc(&sub_command, node_id)) {
                 eprintln!("{}", err.to_string());
-                continue
+                continue;
             }
         }
     });
@@ -105,11 +105,11 @@ fn handle_client_stream(mut stream: UnixStream, tx: Sender<Event>) {
     stream.read_to_string(&mut message).unwrap();
     if &message == "show" {
         tx.send(Event::ShowTag).unwrap();
-        return
+        return;
     }
     if let Some(node) = message.strip_prefix("tag ") {
         tx.send(Event::TagNode(Node(String::from(node)))).unwrap();
-        return
+        return;
     }
     eprintln!("Unsupported message {}", message);
 }
@@ -123,7 +123,7 @@ fn subscribe_client(tx: Sender<Event>) {
                 Ok(stream) => handle_client_stream(stream, tx.clone()),
                 Err(err) => {
                     eprintln!("{}", err.to_string());
-                    continue
+                    continue;
                 }
             }
         }
@@ -208,7 +208,9 @@ fn tag() {
         .arg("-n")
         .output()
         .unwrap();
-    let node = std::str::from_utf8(output.stdout.as_slice()).unwrap().trim();
+    let node = std::str::from_utf8(output.stdout.as_slice())
+        .unwrap()
+        .trim();
     send_client_message(&format!("tag {}", node));
 }
 
