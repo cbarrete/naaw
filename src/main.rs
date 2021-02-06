@@ -30,22 +30,61 @@ impl BspcSubCommand {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct Node(String);
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Node(String);
 
-#[derive(Debug)]
-struct State {
-    tagged_nodes: HashSet<Node>,
-    untagged_nodes: HashSet<Node>,
-    tag_shown: bool,
-}
+mod state {
+    use super::*;
 
-impl State {
-    fn new() -> Self {
-        Self {
-            tagged_nodes: HashSet::new(),
-            untagged_nodes: HashSet::new(),
-            tag_shown: true,
+    pub enum TagStatus {
+        Tagged,
+        Untagged,
+    }
+
+    #[derive(Debug)]
+    pub struct State {
+        tagged_nodes: HashSet<Node>,
+        untagged_nodes: HashSet<Node>,
+        tag_shown: bool,
+    }
+
+    impl State {
+        pub fn new() -> Self {
+            Self {
+                tagged_nodes: HashSet::new(),
+                untagged_nodes: HashSet::new(),
+                tag_shown: true,
+            }
+        }
+
+        pub fn add_node(&mut self, node: Node) {
+            self.untagged_nodes.insert(node);
+        }
+
+        pub fn remove_node(&mut self, node: &Node) {
+            self.tagged_nodes.remove(node);
+            self.untagged_nodes.remove(node);
+        }
+
+        pub fn toggle_tag(&mut self, node: Node) -> TagStatus {
+            if self.tagged_nodes.contains(&node) {
+                self.tagged_nodes.remove(&node);
+                self.untagged_nodes.insert(node);
+                TagStatus::Untagged
+            } else {
+                self.untagged_nodes.remove(&node);
+                self.tagged_nodes.insert(node);
+                TagStatus::Tagged
+            }
+        }
+
+        pub fn is_tag_shown(&self) -> bool {
+            self.tag_shown
+        }
+
+        pub fn toggle_tag_visibility(&mut self) -> impl std::iter::IntoIterator<Item = &Node> {
+            self.tag_shown = !self.tag_shown;
+            self.tagged_nodes.iter().clone()
         }
     }
 }
@@ -168,7 +207,7 @@ fn bspc_reset_border_width(node: &Node) {
 fn server() {
     let (tx, rx) = channel::<Event>();
 
-    let mut state = State::new();
+    let mut state = state::State::new();
 
     subscribe_bspc(BspcSubCommand::NodeAdd, tx.clone());
     subscribe_bspc(BspcSubCommand::NodeRemove, tx.clone());
@@ -178,29 +217,24 @@ fn server() {
         dbg!(&state_change);
         match state_change {
             Event::AddNode(node) => {
-                state.untagged_nodes.insert(node);
+                state.add_node(node);
             }
             Event::RemoveNode(node) => {
-                state.untagged_nodes.remove(&node);
-                state.tagged_nodes.remove(&node);
+                state.remove_node(&node);
             }
-            Event::TagNode(node) => {
-                if state.tagged_nodes.contains(&node) {
-                    bspc_reset_border_width(&node);
-                    state.tagged_nodes.remove(&node);
-                    state.untagged_nodes.insert(node);
-                } else {
+            Event::TagNode(node) => match state.toggle_tag(node.clone()) {
+                state::TagStatus::Tagged => {
                     bspc_set_border_width(&node, 3);
-                    state.untagged_nodes.remove(&node);
-                    if !state.tag_shown {
+                    if !state.is_tag_shown() {
                         bspc_toggle_visibility(&node);
                     }
-                    state.tagged_nodes.insert(node);
                 }
-            }
+                state::TagStatus::Untagged => {
+                    bspc_reset_border_width(&node);
+                }
+            },
             Event::ShowTag => {
-                state.tag_shown = !state.tag_shown;
-                for node in &state.tagged_nodes {
+                for node in state.toggle_tag_visibility() {
                     bspc_toggle_visibility(node);
                 }
             }
